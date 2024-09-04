@@ -88,15 +88,30 @@ class DataCollector:
             writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
 
             # ヘッダーの書き込み
-            writer.writerow(list(column_map_of_issues.keys()) + list(column_map_of_users.keys()))
+            writer.writerow(["time_to_next_issue"] +
+                            list(column_map_of_issues.keys()) + list(column_map_of_users.keys()))
+
+            previous_created_at = None
 
             for i, issue in enumerate(issues):
                 if limit and i >= limit:
                     break
                 print(f"Processing issue {i+1}/{total_issues}")
 
+                row = []    # CSVの各要素を格納するリスト
+
+                # 前のIssueとの時間差を取得
+                if previous_created_at is None:
+                    time_to_next_issue = None
+                else:
+                    current_created_at = issue.created_at
+                    time_to_next_issue = (previous_created_at - current_created_at).total_seconds()
+
+                row.append(str(time_to_next_issue))
+
+                previous_created_at = issue.created_at
+
                 # 各カラムの値を取得
-                row = []
                 for column, json_path in column_map_of_issues.items():
                     value = issue.__dict__
                     for attr in json_path.split('.'):

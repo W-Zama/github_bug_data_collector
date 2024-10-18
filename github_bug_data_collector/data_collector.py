@@ -6,8 +6,6 @@ import os
 import pandas as pd
 import time
 from functools import reduce
-import copy
-
 
 class DataCollector:
     # CSVのカラム名とGitHub APIのレスポンスのキーの対応

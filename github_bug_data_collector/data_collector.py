@@ -3,42 +3,53 @@ import github
 from datetime import datetime
 import csv
 import os
+import pandas as pd
+import time
+from functools import reduce
+import copy
 
 
 class DataCollector:
     # CSVのカラム名とGitHub APIのレスポンスのキーの対応
     COLUMN_MAP_OF_ISSUES = {
-        "number": "_rawData.number",
-        "title": "_rawData.title",
-        "created_at": "_rawData.created_at",
-        "updated_at": "_rawData.updated_at",
-        "closed_at": "_rawData.closed_at",
-        "creator_name": "_rawData.user.login",
-        "assignees_num": "_rawData.assignees",
-        "labels_num": "_rawData.labels",
-        "state": "_rawData.state",
-        "locked": "_rawData.locked",
-        "comments_num": "_rawData.comments",
-        "reactions_+1_num": "_rawData.reactions.+1",
-        "reactions_-1_num": "_rawData.reactions.-1",
-        "reactions_laugh_num": "_rawData.reactions.laugh",
-        "reactions_hooray_num": "_rawData.reactions.hooray",
-        "reactions_confused_num": "_rawData.reactions.confused",
-        "reactions_heart_num": "_rawData.reactions.heart",
-        "reactions_rocket_num": "_rawData.reactions.rocket",
-        "reactions_eyes_num": "_rawData.reactions.eyes",
-        "reactions_total_num": "_rawData.reactions.total_count",
+        "number": ["number"],
+        "title": ["title"],
+        "created_at": ["created_at"],
+        "updated_at": ["updated_at"],
+        "closed_at": ["closed_at"],
+        "creator_name": ["user", "login"],
+        "assignees_num": ["assignees"],
+        "labels_num": ["labels"],
+        "state": ["state"],
+        "locked": ["locked"],
+        "author_association": ["author_association"],
+        "comments_num": ["comments"],
+        "reactions_+1_num": ["reactions", "+1"],
+        "reactions_-1_num": ["reactions", "-1"],
+        "reactions_laugh_num": ["reactions", "laugh"],
+        "reactions_hooray_num": ["reactions", "hooray"],
+        "reactions_confused_num": ["reactions", "confused"],
+        "reactions_heart_num": ["reactions", "heart"],
+        "reactions_rocket_num": ["reactions", "rocket"],
+        "reactions_eyes_num": ["reactions", "eyes"],
+        "reactions_total_num": ["reactions", "total_count"],
     }
 
     COLUMN_MAP_OF_USERS = {
-        "creator_company": "_rawData.company",
-        "creator_followers_num": "_rawData.followers",
-        "creator_following_num": "_rawData.following",
-        "creator_public_repos_num": "_rawData.public_repos",
-        "creator_public_gists_num": "_rawData.public_gists",
-        "creator_created_at": "_rawData.created_at",
-        "creator_updated_at": "_rawData.updated_at",
+        "creator_name": ["login"],
+        "creator_company": ["company"],
+        "creator_followers_num": ["followers"],
+        "creator_following_num": ["following"],
+        "creator_public_repos_num": ["public_repos"],
+        "creator_public_gists_num": ["public_gists"],
+        "creator_created_at": ["created_at"],
+        "creator_updated_at": ["updated_at"],
     }
+
+    # 自作カラムのカラム名の一覧
+    CUSTOM_COLUMN_NAMES = ["time_to_next_issue"]
+
+    # datetime型のカラム名の一覧
 
     @classmethod
     def get_column_map_of_issues(cls) -> dict[str, str]:
@@ -50,6 +61,16 @@ class DataCollector:
         """column_map_of_usersのゲッタ"""
         return cls.COLUMN_MAP_OF_USERS
 
+    @classmethod
+    def get_custom_column_names(cls) -> list[str]:
+        """custom_column_namesのゲッタ"""
+        return cls.CUSTOM_COLUMN_NAMES
+
+    @classmethod
+    def get_column_names(cls) -> list[str]:
+        """全てのカラム名の一覧を取得する"""
+        return cls.CUSTOM_COLUMN_NAMES + list(cls.COLUMN_MAP_OF_ISSUES.keys()) + list(cls.COLUMN_MAP_OF_USERS.keys())
+
     def __init__(self, access_token: str) -> None:
         """
         DataCollectorクラスの初期化メソッド。
@@ -58,7 +79,15 @@ class DataCollector:
         - access_token (str): GitHub APIにアクセスするためのアクセストークン。
         """
 
+        # データセットを取得した時間
+        self.timestamp = datetime.now()
+
+        # GitHubオブジェクトの生成
         self.github = Github(auth=github.Auth.Token(access_token))
+
+    def set_timestamp(self) -> None:
+        """timestampのセッタ"""
+        self.timestamp = datetime.now()
 
     def show_rate_limit(self) -> None:
         """リクエスト制限に関する情報を表示する"""
@@ -70,9 +99,153 @@ class DataCollector:
     def check_limit_and_wait(self) -> None:
         """リクエスト制限を確認し，リクエストが可能でないなら可能になるまで待機する"""
         if self.github.rate_limiting[0] <= 0:
+            reset_time = self.github.rate_limiting_resettime
             print("Request limit exceeded. Waiting for reset time...")
-            while datetime.now().timestamp() < self.github.rate_limiting_resettime:
+
+            while datetime.now().timestamp() < reset_time:
+                sleep_time = max(0, reset_time - datetime.now().timestamp())
+                time.sleep(sleep_time)
+
+            print("Request limit reset. Resuming requests.")
+
+    def convert_data_type(self, value: str | list) -> int | float | datetime | str:
+        """与えられた文字列を，int，float，Datetimeの適切な型に変換する．変換できない場合は文字列のまま返す．リストの場合は要素数を返す"""
+
+        # listの場合は要素数を返す
+        if isinstance(value, list):
+            return len(value)
+
+        # intとして変換を試みる
+        try:
+            return int(value)
+        except:
+            pass
+
+        # floatとして変換を試みる
+        try:
+            return float(value)
+        except:
+            pass
+
+        # 日付として変換を試みる
+        time_formats = ["%Y-%m-%dT%H:%M:%SZ"]
+        for fmt in time_formats:
+            try:
+                return datetime.strptime(value, fmt)
+            except:
                 pass
+
+        # どの変換にも成功しなければ文字列として返す
+        return value
+
+    def calculate_time_to_next_issue(self) -> None:
+        """issuesのリストから，各Issueの前のIssueとの時間差を計算する"""
+
+        self.df_issues["time_to_next_issue"] = self.df_issues["created_at"].diff()
+        # time_to_next_issue = []
+
+        # previous_created_at = None
+
+        # for issue in self.issues:
+        #     if previous_created_at is None:
+        #         time_to_next_issue.append(None)
+        #     else:
+        #         current_created_at = issue.created_at
+        #         time_to_next_issue.append(
+        #             (previous_created_at - current_created_at).total_seconds())
+
+        #     previous_created_at = issue.created_at
+
+        # return time_to_next_issue
+
+    def generate_dataframe(self, owner: str, repo_name: str, state: str = "all", labels: list[str] | None = None, limit: int | None = None) -> pd.DataFrame:
+        """issuesに基づいたDataFrameを生成する"""
+
+        # timestampをセット
+        self.set_timestamp()
+
+        # issuesとusersのDataFrameを作成
+        self.df_issues = pd.DataFrame(
+            columns=list(self.get_column_map_of_issues().keys()) + self.get_custom_column_names())
+        self.df_users = pd.DataFrame(
+            columns=self.get_column_map_of_users().keys())
+
+        # usersのセットを作成
+        users = set()
+
+        repo = self.github.get_repo(f"{owner}/{repo_name}")
+
+        # labelsがNoneの場合にはデフォルト値を使用
+        self.issues = repo.get_issues(state=state, labels=labels or [])
+        self.check_limit_and_wait()
+
+        total_issues = self.issues.totalCount
+
+        # 全てのIssueをリストに追加
+        all_issues = []
+        for i, issue in enumerate(self.issues):
+            print(f"Getting issue {i+1}/{total_issues}")
+            all_issues.append(issue)
+
+            # テスト用
+            if i == 29:
+                break
+
+        # issuesを取得
+        for i, issue in enumerate(all_issues):
+            self.check_limit_and_wait()
+
+            row_dict = {}
+
+            # time_to_next_issue（前のIssueとの時間差）を取得
+            self.calculate_time_to_next_issue()
+
+            for column, json_path in self.get_column_map_of_issues().items():
+
+                # json_pathの階層を再起的にたどる
+                value = reduce(
+                    lambda d, key: d[key], json_path, issue.raw_data)
+
+                # データ型を適切に変換
+                value = self.convert_data_type(value)
+
+                row_dict[column] = value
+
+            # user.loginの情報をsetに追加
+            users.add(row_dict["creator_name"])
+
+            self.df_issues.loc[len(self.df_issues)] = row_dict
+
+        # usersの情報を取得
+        total_users = len(users)
+
+        # それぞれのユーザ情報を取得
+        for i, user in enumerate(users):
+            self.check_limit_and_wait()
+            print(f"Getting user info {i+1}/{total_users}")
+            user_info = self.github.get_user(user)
+
+            row_dict = {}
+
+            for column, json_path in self.get_column_map_of_users().items():
+                # value = user_info.copy()
+
+                # json_pathの階層を再起的にたどる
+                value = reduce(
+                    lambda d, key: d[key], json_path, user_info.raw_data)
+
+                # データ型を適切に変換
+                value = self.convert_data_type(value)
+
+                row_dict[column] = value
+
+            self.df_users.loc[len(self.df_users)] = row_dict
+
+        # ユーザ情報をマージ
+        self.df_all = pd.merge(self.df_issues, self.df_users, left_on="creator_name",
+                               right_on="creator_name", how="left")
+
+        return self.df_all
 
     def generate_csv(self, owner: str, repo_name: str, dir_path: str = ".", state: str = "all", labels: list[str] | None = None, limit: int | None = None) -> None:
         """issuesに基づいたCSVを生成する"""
@@ -80,10 +253,10 @@ class DataCollector:
         repo = self.github.get_repo(f"{owner}/{repo_name}")
 
         # labelsがNoneの場合にはデフォルト値を使用
-        issues = repo.get_issues(state=state, labels=labels or [])
+        self.issues = repo.get_issues(state=state, labels=labels or [])
         self.check_limit_and_wait()
 
-        total_issues = issues.totalCount
+        total_issues = self.issues.totalCount
 
         column_map_of_issues = self.get_column_map_of_issues()
         column_map_of_users = self.get_column_map_of_users()
@@ -101,7 +274,7 @@ class DataCollector:
 
             previous_created_at = None
 
-            for i, issue in enumerate(issues):
+            for i, issue in enumerate(self.issues):
                 if limit and i >= limit:
                     break
                 print(f"Processing issue {i+1}/{total_issues}")

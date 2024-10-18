@@ -7,6 +7,7 @@ import pandas as pd
 import time
 from functools import reduce
 
+
 class DataCollector:
     # CSVのカラム名とGitHub APIのレスポンスのキーの対応
     COLUMN_MAP_OF_ISSUES = {
@@ -138,23 +139,7 @@ class DataCollector:
 
     def calculate_time_to_next_issue(self) -> None:
         """issuesのリストから，各Issueの前のIssueとの時間差を計算する"""
-
         self.df_issues["time_to_next_issue"] = self.df_issues["created_at"].diff()
-        # time_to_next_issue = []
-
-        # previous_created_at = None
-
-        # for issue in self.issues:
-        #     if previous_created_at is None:
-        #         time_to_next_issue.append(None)
-        #     else:
-        #         current_created_at = issue.created_at
-        #         time_to_next_issue.append(
-        #             (previous_created_at - current_created_at).total_seconds())
-
-        #     previous_created_at = issue.created_at
-
-        # return time_to_next_issue
 
     def generate_dataframe(self, owner: str, repo_name: str, state: str = "all", labels: list[str] | None = None, limit: int | None = None) -> pd.DataFrame:
         """issuesに基づいたDataFrameを生成する"""

@@ -139,7 +139,7 @@ class DataCollector:
 
     def calculate_time_to_next_issue(self) -> None:
         """issuesのリストから，各Issueの前のIssueとの時間差を計算する"""
-        self.df_issues["time_to_next_issue"] = self.df_issues["created_at"].diff()
+        self.df_issues["time_to_next_issue"] = -self.df_issues["created_at"].diff()
 
     def generate_dataframe(self, owner: str, repo_name: str, state: str = "all", labels: list[str] | None = None, limit: int | None = None) -> pd.DataFrame:
         """issuesに基づいたDataFrameを生成する"""
@@ -181,9 +181,6 @@ class DataCollector:
 
             row_dict = {}
 
-            # time_to_next_issue（前のIssueとの時間差）を取得
-            self.calculate_time_to_next_issue()
-
             for column, json_path in self.get_column_map_of_issues().items():
 
                 # json_pathの階層を再起的にたどる
@@ -202,6 +199,9 @@ class DataCollector:
 
         self.df_issues = pd.concat(
             [self.df_issues, pd.DataFrame(row_dict_list)])
+
+        # time_to_next_issue（前のIssueとの時間差）を取得
+        self.calculate_time_to_next_issue()
 
         # usersの情報を取得
         total_users = len(users)

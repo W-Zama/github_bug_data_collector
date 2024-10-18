@@ -192,6 +192,7 @@ class DataCollector:
                 break
 
         # issuesを取得
+        row_dict_list = []
         for i, issue in enumerate(all_issues):
             self.check_limit_and_wait()
 
@@ -214,12 +215,16 @@ class DataCollector:
             # user.loginの情報をsetに追加
             users.add(row_dict["creator_name"])
 
-            self.df_issues.loc[len(self.df_issues)] = row_dict
+            row_dict_list.append(row_dict)
+
+        self.df_issues = pd.concat(
+            [self.df_issues, pd.DataFrame(row_dict_list)])
 
         # usersの情報を取得
         total_users = len(users)
 
         # それぞれのユーザ情報を取得
+        row_dict_list = []
         for i, user in enumerate(users):
             self.check_limit_and_wait()
             print(f"Getting user info {i+1}/{total_users}")
@@ -239,7 +244,9 @@ class DataCollector:
 
                 row_dict[column] = value
 
-            self.df_users.loc[len(self.df_users)] = row_dict
+            row_dict_list.append(row_dict)
+
+        self.df_users = pd.concat([self.df_users, pd.DataFrame(row_dict_list)])
 
         # ユーザ情報をマージ
         self.df_all = pd.merge(self.df_issues, self.df_users, left_on="creator_name",

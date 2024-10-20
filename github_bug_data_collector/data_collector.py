@@ -1,8 +1,6 @@
 from github import Github
 import github
 from datetime import datetime
-import csv
-import os
 import pandas as pd
 import time
 from functools import reduce

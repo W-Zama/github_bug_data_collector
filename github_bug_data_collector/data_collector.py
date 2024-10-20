@@ -4,6 +4,7 @@ from datetime import datetime
 import pandas as pd
 import time
 from functools import reduce
+from typing import Optional
 
 
 class DataCollector:
@@ -130,7 +131,7 @@ class DataCollector:
         self.df_issues["time_to_next_issue"] = - \
             self.df_issues["created_at"].diff()
 
-    def generate_dataframe(self, owner: str, repo_name: str, state: str = "all", labels: list[str] | None = None, limit: int | None = None) -> pd.DataFrame:
+    def generate_dataframe(self, owner: str, repo_name: str, limit: Optional[int] = None, **kwargs) -> pd.DataFrame:
         """issuesに基づいたDataFrameを生成する"""
 
         # timestampをセット
@@ -145,10 +146,11 @@ class DataCollector:
         # usersのセットを作成
         users = set()
 
+        # リポジトリを取得
         repo = self.github.get_repo(f"{owner}/{repo_name}")
 
-        # labelsがNoneの場合にはデフォルト値を使用
-        self.issues = repo.get_issues(state=state, labels=labels or [])
+        # issuesを取得
+        self.issues = repo.get_issues(**kwargs)
         self.check_limit_and_wait()
 
         total_issues = self.issues.totalCount
@@ -156,6 +158,10 @@ class DataCollector:
         # 全てのIssueをリストに追加
         all_issues = []
         for i, issue in enumerate(self.issues):
+            # limitが指定されている場合は，その数だけ取得
+            if limit is not None and i >= limit:
+                break
+
             print(f"Getting issue {i+1}/{total_issues}")
             all_issues.append(issue)
 

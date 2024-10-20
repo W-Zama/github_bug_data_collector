@@ -150,14 +150,19 @@ class DataCollector:
         repo = self.github.get_repo(f"{owner}/{repo_name}")
 
         # issuesを取得
-        self.issues = repo.get_issues(**kwargs)
         self.check_limit_and_wait()
+        self.issues = repo.get_issues(**kwargs)
 
-        total_issues = self.issues.totalCount
+        if limit is not None:
+            total_issues = limit
+        else:
+            total_issues = self.issues.totalCount
 
         # 全てのIssueをリストに追加
         all_issues = []
         for i, issue in enumerate(self.issues):
+            self.check_limit_and_wait()
+
             # limitが指定されている場合は，その数だけ取得
             if limit is not None and i >= limit:
                 break
@@ -166,10 +171,9 @@ class DataCollector:
             all_issues.append(issue)
 
         # issuesを取得
-        print("Converting issues to DataFrame...")
         row_dict_list = []
         for i, issue in enumerate(all_issues):
-            self.check_limit_and_wait()
+            print(f"Converting issues to DataFrame {i+1}/{total_issues}")
 
             row_dict = {}
 

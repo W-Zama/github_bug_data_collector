@@ -1,6 +1,7 @@
 from github import Github
 import github
 from datetime import datetime
+import numpy as np
 import pandas as pd
 import time
 from functools import reduce
@@ -136,8 +137,18 @@ class DataCollector:
         self.df_issues["time_to_next_issue"] = - \
             self.df_issues["created_at"].diff()
 
-    def generate_dataframe(self, owner: str, repo_name: str, limit: Optional[int] = None, **kwargs) -> pd.DataFrame:
-        """issuesに基づいたDataFrameを生成する"""
+    def generate_dataframe(self, owner: str, repo_name: str, limit: Optional[int] = None, datetime_format: str = "seconds", timedelta_format: str = "seconds", **kwargs) -> pd.DataFrame:
+        """
+        issuesに基づいたDataFrameを生成する
+
+        Args:
+            owner (str): リポジトリの所有者名
+            repo_name (str): リポジトリ名
+            limit (Optional[int]): 取得するIssueの数の上限
+            datetime_format (str): datetime型のカラムの表現を指定する引数．"seconds"だとint型の秒数で"datetime"だとdatetime型で返す
+            timedelta_format (str): timedelta型のカラムの表現を指定する引数．"seconds"だとint型の秒数で"timedelta"だとtimedelta64[ns]型で返す
+            **kwargs: get_issuesメソッドに渡す引数
+        """
 
         # timestampをセット
         self.set_timestamp()
@@ -233,5 +244,31 @@ class DataCollector:
         # ユーザ情報をマージ
         self.df_all = pd.merge(self.df_issues, self.df_users, left_on="creator_name",
                                right_on="creator_name", how="left")
+
+        # datetimeの表現を変換
+        if datetime_format == "seconds":
+            # df_allの全てのカラムの型を確認し，datetime型のカラムを秒数に変換
+            for column in self.df_all.columns:
+                if self.df_all[column].dtype == "datetime64[ns]":
+                    self.df_all[column] = self.df_all[column].apply(
+                        lambda x: int(x.timestamp()) if pd.notnull(x) else np.nan
+                    )
+        elif datetime_format == "datetime":
+            pass
+        else:
+            raise ValueError("datetime_format must be 'seconds' or 'datetime'")
+
+        # timedeltaの表現を変換
+        if timedelta_format == "seconds":
+            # df_allの全てのカラムの型を確認し，timedelta型のカラムを秒数に変換
+            for column in self.df_all.columns:
+                if self.df_all[column].dtype == "timedelta64[ns]":
+                    self.df_all[column] = self.df_all[column].apply(
+                        lambda x: int(x.total_seconds()) if pd.notnull(x) else np.nan
+                    )
+        elif timedelta_format == "timedelta":
+            pass
+        else:
+            raise ValueError("timedelta_format must be 'seconds' or 'timedelta'")
 
         return self.df_all

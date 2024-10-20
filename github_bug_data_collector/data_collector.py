@@ -5,6 +5,7 @@ import pandas as pd
 import time
 from functools import reduce
 from typing import Optional
+from tqdm import tqdm
 
 
 class DataCollector:
@@ -160,20 +161,18 @@ class DataCollector:
 
         # 全てのIssueをリストに追加
         all_issues = []
-        for i, issue in enumerate(self.issues):
+        for i, issue in enumerate(tqdm(self.issues, desc="Getting issues", total=total_issues)):
             self.check_limit_and_wait()
 
             # limitが指定されている場合は，その数だけ取得
             if limit is not None and i >= limit:
                 break
 
-            print(f"Getting issue {i+1}/{total_issues}")
             all_issues.append(issue)
 
         # issuesを取得
         row_dict_list = []
-        for i, issue in enumerate(all_issues):
-            print(f"Converting issues to DataFrame {i+1}/{total_issues}")
+        for i, issue in enumerate(tqdm(all_issues, desc="Converting issues to DataFrame", total=total_issues)):
 
             row_dict = {}
 
@@ -204,9 +203,9 @@ class DataCollector:
 
         # それぞれのユーザ情報を取得
         row_dict_list = []
-        for i, user in enumerate(users):
+        for i, user in enumerate(tqdm(users, desc="Getting user info", total=total_users)):
             self.check_limit_and_wait()
-            print(f"Getting user info {i+1}/{total_users}")
+
             user_info = self.github.get_user(user)
 
             row_dict = {}

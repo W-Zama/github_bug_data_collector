@@ -160,6 +160,7 @@ class DataCollector:
             all_issues.append(issue)
 
         # issuesを取得
+        print("Converting issues to DataFrame...")
         row_dict_list = []
         for i, issue in enumerate(all_issues):
             self.check_limit_and_wait()

@@ -134,10 +134,10 @@ class DataCollector:
 
     def calculate_time_to_next_issue(self) -> None:
         """issuesのリストから，各Issueの前のIssueとの時間差を計算する"""
-        self.df_issues["time_to_next_issue"] = - \
-            self.df_issues["created_at"].diff()
+        self.df_issues["time_to_next_issue"] = \
+            self.df_issues["created_at"].shift(-1) - self.df_issues["created_at"]
 
-    def generate_dataframe(self, owner: str, repo_name: str, limit: Optional[int] = None, datetime_format: str = "seconds", timedelta_format: str = "seconds", **kwargs) -> pd.DataFrame:
+    def generate_dataframe(self, owner: str, repo_name: str, limit: Optional[int] = None, until: Optional[pd.Timestamp] = None, datetime_format: str = "seconds", timedelta_format: str = "seconds", **kwargs) -> pd.DataFrame:
         """
         issuesに基づいたDataFrameを生成する
 
@@ -145,6 +145,7 @@ class DataCollector:
             owner (str): リポジトリの所有者名
             repo_name (str): リポジトリ名
             limit (Optional[int]): 取得するIssueの数の上限
+            until (Optional[datetime]): 取得するIssueの最終日時．
             datetime_format (str): datetime型のカラムの表現を指定する引数．"seconds"だとint型の秒数で"datetime"だとdatetime型で返す
             timedelta_format (str): timedelta型のカラムの表現を指定する引数．"seconds"だとint型の秒数で"timedelta"だとtimedelta64[ns]型で返す
             **kwargs: get_issuesメソッドに渡す引数
@@ -167,7 +168,7 @@ class DataCollector:
 
         # issuesを取得
         self.check_limit_and_wait()
-        self.issues = repo.get_issues(**kwargs)
+        self.issues = repo.get_issues(direction="asc", state="all", **kwargs)
 
         if limit is not None:
             total_issues = limit
@@ -209,6 +210,11 @@ class DataCollector:
 
         self.df_issues = pd.concat(
             [self.df_issues, pd.DataFrame(row_dict_list)])
+        
+        # untilの日時以降のIssueを削除して，フィルタリング
+        if until is not None:
+            # until = pd.Timestamp(until)
+            self.df_issues = self.df_issues[self.df_issues["created_at"] <= until]
 
         # time_to_next_issue（前のIssueとの時間差）を取得
         self.calculate_time_to_next_issue()

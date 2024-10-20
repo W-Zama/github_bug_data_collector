@@ -45,11 +45,6 @@ class DataCollector:
         "creator_updated_at": ["updated_at"],
     }
 
-    # 自作カラムのカラム名の一覧
-    CUSTOM_COLUMN_NAMES = ["time_to_next_issue"]
-
-    # datetime型のカラム名の一覧
-
     @classmethod
     def get_column_map_of_issues(cls) -> dict[str, str]:
         """column_map_of_issuesのゲッタ"""
@@ -61,14 +56,9 @@ class DataCollector:
         return cls.COLUMN_MAP_OF_USERS
 
     @classmethod
-    def get_custom_column_names(cls) -> list[str]:
-        """custom_column_namesのゲッタ"""
-        return cls.CUSTOM_COLUMN_NAMES
-
-    @classmethod
     def get_column_names(cls) -> list[str]:
         """全てのカラム名の一覧を取得する"""
-        return cls.CUSTOM_COLUMN_NAMES + list(cls.COLUMN_MAP_OF_ISSUES.keys()) + list(cls.COLUMN_MAP_OF_USERS.keys())
+        return list(cls.COLUMN_MAP_OF_ISSUES.keys()) + list(cls.COLUMN_MAP_OF_USERS.keys())
 
     def __init__(self, access_token: str) -> None:
         """
@@ -149,7 +139,7 @@ class DataCollector:
 
         # issuesとusersのDataFrameを作成
         self.df_issues = pd.DataFrame(
-            columns=list(self.get_column_map_of_issues().keys()) + self.get_custom_column_names())
+            columns=list(self.get_column_map_of_issues().keys()))
         self.df_users = pd.DataFrame(
             columns=self.get_column_map_of_users().keys())
 

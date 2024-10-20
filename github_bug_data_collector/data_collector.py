@@ -6,6 +6,10 @@ import time
 from functools import reduce
 from typing import Optional
 from tqdm import tqdm
+import warnings
+
+# FutureWarningを無視する設定
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
 class DataCollector:

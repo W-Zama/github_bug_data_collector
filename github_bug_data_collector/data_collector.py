@@ -77,7 +77,7 @@ class DataCollector:
         self.timestamp = datetime.now()
 
         # GitHubオブジェクトの生成
-        self.github = Github(auth=github.Auth.Token(access_token))
+        self.github = Github(auth=github.Auth.Token(access_token), per_page=100)
 
     def set_timestamp(self) -> None:
         """timestampのセッタ"""
@@ -221,13 +221,11 @@ class DataCollector:
         for i, user in enumerate(tqdm(users, desc="Getting user info", total=total_users)):
             self.check_limit_and_wait()
 
-            user_info = self.github.get_user(user)
+            user_info = self.github.get_user(str(user))
 
             row_dict = {}
 
             for column, json_path in self.get_column_map_of_users().items():
-                # value = user_info.copy()
-
                 # json_pathの階層を再起的にたどる
                 value = reduce(
                     lambda d, key: d[key], json_path, user_info.raw_data)

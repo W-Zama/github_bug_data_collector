@@ -129,7 +129,8 @@ class DataCollector:
 
     def calculate_time_to_next_issue(self) -> None:
         """issuesのリストから，各Issueの前のIssueとの時間差を計算する"""
-        self.df_issues["time_to_next_issue"] = -self.df_issues["created_at"].diff()
+        self.df_issues["time_to_next_issue"] = - \
+            self.df_issues["created_at"].diff()
 
     def generate_dataframe(self, owner: str, repo_name: str, state: str = "all", labels: list[str] | None = None, limit: int | None = None) -> pd.DataFrame:
         """issuesに基づいたDataFrameを生成する"""
@@ -159,10 +160,6 @@ class DataCollector:
         for i, issue in enumerate(self.issues):
             print(f"Getting issue {i+1}/{total_issues}")
             all_issues.append(issue)
-
-            # テスト用
-            if i == 29:
-                break
 
         # issuesを取得
         row_dict_list = []

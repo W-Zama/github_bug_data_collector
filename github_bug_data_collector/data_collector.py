@@ -255,7 +255,7 @@ class DataCollector:
                 self.df_all[f"{column}_seconds_formatted"] = self.df_all[column].apply(
                     lambda x: int(x.timestamp()) if pd.notnull(
                         x) else np.nan
-                )
+                ).astype("Int64")
 
         # df_allの全てのカラムの型を確認し，timedelta型のカラムを秒数に変換
         for column in self.df_all.columns:
@@ -263,6 +263,6 @@ class DataCollector:
                 self.df_all[f"{column}_timedelta_formatted"] = self.df_all[column].apply(
                     lambda x: int(x.total_seconds()) if pd.notnull(
                         x) else np.nan
-                )
+                ).astype("Int64")
 
         return self.df_all

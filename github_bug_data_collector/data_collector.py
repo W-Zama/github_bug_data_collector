@@ -77,7 +77,8 @@ class DataCollector:
         self.timestamp = datetime.now()
 
         # GitHubオブジェクトの生成
-        self.github = Github(auth=github.Auth.Token(access_token), per_page=100)
+        self.github = Github(auth=github.Auth.Token(
+            access_token), per_page=100)
 
     def set_timestamp(self) -> None:
         """timestampのセッタ"""
@@ -135,7 +136,8 @@ class DataCollector:
     def calculate_time_to_next_issue(self) -> None:
         """issuesのリストから，各Issueの前のIssueとの時間差を計算する"""
         self.df_issues["time_to_next_issue"] = \
-            self.df_issues["created_at"].shift(-1) - self.df_issues["created_at"]
+            self.df_issues["created_at"].shift(-1) - \
+            self.df_issues["created_at"]
 
     def generate_dataframe(self, owner: str, repo_name: str, limit: Optional[int] = None, until: Optional[pd.Timestamp] = None, datetime_format: str = "seconds", timedelta_format: str = "seconds", **kwargs) -> pd.DataFrame:
         """
@@ -164,6 +166,7 @@ class DataCollector:
         users = set()
 
         # リポジトリを取得
+        self.check_limit_and_wait()
         repo = self.github.get_repo(f"{owner}/{repo_name}")
 
         # issuesを取得
@@ -210,7 +213,7 @@ class DataCollector:
 
         self.df_issues = pd.concat(
             [self.df_issues, pd.DataFrame(row_dict_list)])
-        
+
         # untilの日時以降のIssueを削除して，フィルタリング
         if until is not None:
             # until = pd.Timestamp(until)
@@ -255,7 +258,8 @@ class DataCollector:
             for column in self.df_all.columns:
                 if self.df_all[column].dtype == "datetime64[ns]":
                     self.df_all[column] = self.df_all[column].apply(
-                        lambda x: int(x.timestamp()) if pd.notnull(x) else np.nan
+                        lambda x: int(x.timestamp()) if pd.notnull(
+                            x) else np.nan
                     )
         elif datetime_format == "datetime":
             pass
@@ -268,11 +272,13 @@ class DataCollector:
             for column in self.df_all.columns:
                 if self.df_all[column].dtype == "timedelta64[ns]":
                     self.df_all[column] = self.df_all[column].apply(
-                        lambda x: int(x.total_seconds()) if pd.notnull(x) else np.nan
+                        lambda x: int(x.total_seconds()) if pd.notnull(
+                            x) else np.nan
                     )
         elif timedelta_format == "timedelta":
             pass
         else:
-            raise ValueError("timedelta_format must be 'seconds' or 'timedelta'")
+            raise ValueError(
+                "timedelta_format must be 'seconds' or 'timedelta'")
 
         return self.df_all
